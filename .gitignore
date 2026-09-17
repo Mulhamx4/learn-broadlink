@@ -1,3 +1,6 @@
 .idea
 /learn-broadlink.iml
 .venv
+
+# local project state, regenerated from smartir.json / template.json
+devices.json

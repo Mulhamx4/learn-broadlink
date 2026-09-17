@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Broadlink SmartIR Studio</title>
+<style>
+  :root{
+    --bg:#0f1218; --panel:#171b23; --panel-2:#1e232d; --line:#2a3140;
+    --txt:#e8ecf3; --muted:#93a0b4; --accent:#4c8dff; --ok:#2ecc8f;
+    --warn:#ffb648; --err:#ff5f6d; --radius:12px;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f3f5f9; --panel:#ffffff; --panel-2:#f7f9fc; --line:#e1e6ef;
+      --txt:#1a1f28; --muted:#5f6b7f;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font-family:"Segoe UI",system-ui,-apple-system,"Noto Sans Arabic",sans-serif;
+    font-size:15px; line-height:1.6;
+  }
+  header{
+    padding:14px 16px; border-bottom:1px solid var(--line); background:var(--panel);
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap; position:sticky; top:0; z-index:10;
+  }
+  header h1{font-size:17px; margin:0; font-weight:650}
+  .muted,.note{color:var(--muted); font-size:12px}
+  .wrap{max-width:1280px; margin:0 auto; padding:16px; display:grid; gap:16px; grid-template-columns:300px 1fr}
+  @media (max-width:900px){ .wrap{grid-template-columns:1fr} }
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px}
+  .panel h2{font-size:14px; margin:0 0 12px; display:flex; align-items:center; gap:8px}
+  .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+  .grid{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+  label{display:block; font-size:12px; color:var(--muted); margin-bottom:4px}
+  input,select,textarea{
+    width:100%; padding:8px 11px; background:var(--panel-2); color:var(--txt);
+    border:1px solid var(--line); border-radius:8px; font:inherit; font-size:14px;
+  }
+  input[type=checkbox]{width:auto}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent); outline-offset:-1px}
+  textarea{min-height:64px; resize:vertical; font-family:ui-monospace,Consolas,monospace; font-size:13px; direction:ltr; text-align:left}
+  button{
+    padding:8px 14px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--txt); font:inherit; font-size:14px; cursor:pointer;
+  }
+  button:hover:not(:disabled){border-color:var(--accent)}
+  button:disabled{opacity:.45; cursor:not-allowed}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  button.ghost{background:transparent}
+  button.sm{padding:4px 9px; font-size:12.5px}
+  button.danger:hover{border-color:var(--err); color:var(--err)}
+  .pill{
+    display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px;
+    font-size:12px; background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+  .dot.on{background:var(--ok)} .dot.busy{background:var(--warn)} .dot.off{background:var(--err)}
+  .bar{height:6px; background:var(--panel-2); border-radius:999px; overflow:hidden; border:1px solid var(--line)}
+  .bar > i{display:block; height:100%; background:var(--ok); width:0; transition:width .3s}
+
+  /* device list */
+  .dev{
+    padding:10px 12px; border:1px solid var(--line); border-radius:10px; cursor:pointer;
+    background:var(--panel-2); margin-bottom:8px;
+  }
+  .dev:hover{border-color:var(--accent)}
+  .dev.sel{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent)}
+  .dev .t{display:flex; align-items:center; gap:8px; font-size:14px}
+  .dev .t b{font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+  /* groups */
+  .group{border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden}
+  .group > summary{
+    padding:10px 12px; cursor:pointer; background:var(--panel-2); display:flex;
+    align-items:center; gap:10px; list-style:none; font-size:14px;
+  }
+  .group > summary::-webkit-details-marker{display:none}
+  .group > summary .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; direction:ltr; text-align:right}
+  .group[open] > summary{border-bottom:1px solid var(--line)}
+  .slots{padding:8px 12px; display:grid; gap:4px}
+  .slot{display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--line)}
+  .slot:last-child{border-bottom:0}
+  .slot .nm{width:74px; flex:none; font-size:13.5px}
+  .slot .code{
+    flex:1; min-width:0; direction:ltr; text-align:left; font-family:ui-monospace,Consolas,monospace;
+    font-size:11.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .slot.has .code{color:var(--ok)}
+  .slot .acts{flex:none; white-space:nowrap}
+
+  .log{
+    background:#0b0e13; color:#c7d2e0; border-radius:8px; padding:10px 12px; font-size:12.5px;
+    font-family:ui-monospace,Consolas,monospace; max-height:130px; overflow:auto;
+    direction:ltr; text-align:left; border:1px solid var(--line);
+  }
+  .log .e{color:var(--err)} .log .s{color:var(--ok)} .log .w{color:var(--warn)}
+  .modal{position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; place-items:center; padding:16px; z-index:30}
+  .modal.show{display:grid}
+  .modal .box{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:22px; max-width:430px; width:100%; text-align:center}
+  .modal .box.left{text-align:right}
+  .pulse{width:58px;height:58px;border-radius:50%;background:var(--accent);margin:4px auto 14px;animation:p 1.2s infinite}
+  @keyframes p{0%{transform:scale(.8);opacity:.5}50%{transform:scale(1.1);opacity:1}100%{transform:scale(.8);opacity:.5}}
+  .tabs{display:flex; gap:6px; margin-bottom:14px; border-bottom:1px solid var(--line)}
+  .tabs button{border:0; border-bottom:2px solid transparent; border-radius:0; background:none; padding:8px 14px}
+  .tabs button.sel{border-bottom-color:var(--accent); color:var(--accent)}
+  .hide{display:none !important}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Broadlink SmartIR Studio</h1>
+  <span class="muted">أجهزة متعددة · مكيّف · تلفاز · مروحة · إضاءة</span>
+  <span style="flex:1"></span>
+  <input id="ip" placeholder="192.168.0.100" dir="ltr" style="width:150px;text-align:left">
+  <button id="btnDiscover" class="sm">بحث</button>
+  <button id="btnConnect" class="sm primary">اتصال</button>
+  <span class="pill"><span class="dot off" id="statusDot"></span><span id="statusTxt">غير متصل</span></span>
+</header>
+
+<div class="wrap">
+
+  <!-- ============ sidebar: devices ============ -->
+  <aside>
+    <div class="panel">
+      <h2>الأجهزة <span class="muted" id="devCount"></span></h2>
+      <div id="devList"></div>
+      <button id="btnAddDev" class="primary" style="width:100%">+ إضافة جهاز</button>
+      <div id="devChips" class="row" style="margin-top:8px"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>التصدير</h2>
+      <div class="row">
+        <button id="btnExpProject" class="primary sm">ملف واحد لكل الأجهزة</button>
+        <button id="btnExpZip" class="sm">ZIP جاهز لـ SmartIR</button>
+      </div>
+      <p class="note" style="margin:10px 0 0">
+        Home&nbsp;Assistant يقرأ <b>ملفاً لكل جهاز</b>، لذا استخدم الـZIP للتركيب الفعلي.
+        الملف الواحد للنسخ الاحتياطي والاستعادة.
+      </p>
+      <div class="row" style="margin-top:10px">
+        <button id="btnImpProject" class="ghost sm">استعادة ملف واحد</button>
+        <button id="btnImpDevice" class="ghost sm">استيراد جهاز SmartIR</button>
+      </div>
+      <input type="file" id="fileProject" accept=".json" hidden>
+      <input type="file" id="fileDevice" accept=".json" hidden>
+    </div>
+
+    <div class="log" id="log" style="margin-top:16px"></div>
+  </aside>
+
+  <!-- ============ main ============ -->
+  <main>
+    <div class="panel" id="empty">
+      <h2>ابدأ</h2>
+      <p class="note">أضف جهازاً من القائمة، ثم اتصل بجهاز Broadlink من الأعلى وابدأ تعلّم الأكواد.</p>
+    </div>
+
+    <div class="panel hide" id="editor">
+      <div class="row" style="margin-bottom:12px">
+        <div style="flex:1;min-width:180px">
+          <label for="devName">اسم الجهاز</label>
+          <input id="devName">
+        </div>
+        <div style="align-self:flex-end" class="row">
+          <button id="btnExpOne" class="sm">تنزيل ملف هذا الجهاز</button>
+          <button id="btnDupDev" class="sm">تكرار</button>
+          <button id="btnDelDev" class="sm danger">حذف</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button data-tab="codes" class="sel">الأكواد</button>
+        <button data-tab="cfg">التخصيص</button>
+      </div>
+
+      <!-- codes tab -->
+      <section id="tabCodes">
+        <div class="row" style="margin-bottom:10px">
+          <span class="note" id="progTxt">0 من 0</span>
+          <div class="bar" style="flex:1;min-width:120px"><i id="progBar"></i></div>
+          <button id="btnStop" class="sm ghost" disabled>إيقاف</button>
+        </div>
+        <div id="groups"></div>
+      </section>
+
+      <!-- config tab -->
+      <section id="tabCfg" class="hide">
+        <div class="grid" id="cfgFields"></div>
+        <div class="row" style="margin-top:14px">
+          <button id="btnSaveCfg" class="primary">حفظ التخصيص</button>
+          <span class="note" id="cfgNote"></span>
+        </div>
+        <p class="note" style="margin-top:10px">
+          تعديل القوائم يعيد بناء خانات الأكواد. الأكواد المتعلَّمة لا تُحذف —
+          لكن خانة تغيّر اسمها ستظهر فارغة لأن مسارها تغيّر.
+        </p>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- learning modal -->
+<div class="modal" id="modal">
+  <div class="box">
+    <div class="pulse"></div>
+    <h3 style="margin:0 0 6px" id="mTitle">في وضع التعلّم…</h3>
+    <p class="note" id="mSub">وجّه الريموت نحو جهاز Broadlink واضغط الزر.</p>
+    <p id="mCount" style="font-size:22px;margin:8px 0">30</p>
+    <button id="mCancel" class="ghost">إلغاء</button>
+  </div>
+</div>
+
+<!-- add-device modal -->
+<div class="modal" id="addModal">
+  <div class="box left">
+    <h3 style="margin:0 0 14px">إضافة جهاز</h3>
+    <label for="newName">الاسم</label>
+    <input id="newName" placeholder="تلفاز الصالة">
+    <label for="newPlatform" style="margin-top:10px">النوع</label>
+    <select id="newPlatform"></select>
+    <div class="row" style="margin-top:16px;justify-content:flex-end">
+      <button id="addCancel" class="ghost">إلغاء</button>
+      <button id="addOk" class="primary">إضافة</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let PLATFORMS = {}, DEVICES = [], CUR = null, SPEC = null, SLOTS = [], stopFlag = false, busy = false;
+
+function log(msg, cls){
+  const t = new Date().toLocaleTimeString('en-GB');
+  $('log').insertAdjacentHTML('afterbegin', '<div class="' + (cls||'') + '">[' + t + '] ' + msg + '</div>');
+}
+async function api(path, body, method){
+  method = method || (body === undefined ? 'GET' : 'POST');
+  const opt = {method: method};
+  if (method !== 'GET' && method !== 'DELETE'){
+    opt.headers = {'Content-Type':'application/json'};
+    opt.body = JSON.stringify(body === undefined ? {} : body);
+  }
+  const r = await fetch(path, opt);
+  let j = {};
+  try { j = await r.json(); } catch(e){}
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+const splitList = s => s.split(',').map(x => x.trim()).filter(Boolean);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function download(url){ const a = document.createElement('a'); a.href = url; a.click(); }
+
+// ------------------------------------------------------------ connection
+function setStatus(state, text){
+  $('statusDot').className = 'dot ' + state;
+  $('statusTxt').textContent = text;
+}
+$('btnDiscover').onclick = async () => {
+  const b = $('btnDiscover'); b.disabled = true; b.textContent = '…';
+  try{
+    const j = await api('/api/discover', {timeout:5});
+    $('devChips').innerHTML = j.devices.length
+      ? j.devices.map(d => '<button class="sm" data-ip="' + d.ip + '">' + esc(d.model || d.type) + ' · ' + d.ip + '</button>').join('')
+      : '<span class="note">لم يُعثر على أجهزة — أدخل الـIP يدوياً.</span>';
+    $('devChips').querySelectorAll('button').forEach(c => {
+      c.onclick = () => { $('ip').value = c.dataset.ip; $('btnConnect').click(); };
+    });
+    log('discovered ' + j.devices.length + ' device(s)', 's');
+  } catch(e){ log('discovery failed: ' + e.message, 'e'); }
+  b.disabled = false; b.textContent = 'بحث';
+};
+$('btnConnect').onclick = async () => {
+  setStatus('busy', 'جارِ الاتصال…');
+  try{
+    const j = await api('/api/connect', {ip: $('ip').value});
+    setStatus('on', j.device.model || 'متصل');
+    localStorage.setItem('bl_ip', j.device.ip);
+    log('connected to ' + j.device.ip, 's');
+  } catch(e){ setStatus('off', 'غير متصل'); log('connect failed: ' + e.message, 'e'); }
+};
+
+// ------------------------------------------------------------ device list
+async function loadDevices(keepSel){
+  const j = await api('/api/devices');
+  DEVICES = j.devices;
+  $('devCount').textContent = DEVICES.length ? '(' + DEVICES.length + ')' : '';
+  $('devList').innerHTML = DEVICES.map(d => {
+    const pct = d.total ? Math.round(d.done / d.total * 100) : 0;
+    return '<div class="dev' + (CUR && d.id === CUR.id ? ' sel' : '') + '" data-id="' + d.id + '">' +
+      '<div class="t"><span>' + d.icon + '</span><b>' + esc(d.name) + '</b>' +
+      '<span class="note">' + d.done + '/' + d.total + '</span></div>' +
+      '<div class="bar" style="margin-top:6px"><i style="width:' + pct + '%"></i></div></div>';
+  }).join('') || '<p class="note">لا توجد أجهزة بعد.</p>';
+  $('devList').querySelectorAll('.dev').forEach(el => {
+    el.onclick = () => selectDevice(el.dataset.id);
+  });
+  if (!keepSel && !CUR && DEVICES.length) await selectDevice(DEVICES[0].id);
+}
+
+async function selectDevice(id){
+  const j = await api('/api/devices/' + id);
+  CUR = j.device; SPEC = j.spec; SLOTS = j.slots;
+  $('empty').classList.add('hide');
+  $('editor').classList.remove('hide');
+  $('devName').value = CUR.name;
+  renderConfig();
+  renderGroups();
+  updateProgress(j.stats);
+  await loadDevices(true);
+}
+
+$('btnAddDev').onclick = () => {
+  $('newName').value = '';
+  $('newPlatform').innerHTML = Object.keys(PLATFORMS)
+    .map(k => '<option value="' + k + '">' + PLATFORMS[k].icon + ' ' + PLATFORMS[k].label + '</option>').join('');
+  $('addModal').classList.add('show');
+};
+$('addCancel').onclick = () => $('addModal').classList.remove('show');
+$('addOk').onclick = async () => {
+  try{
+    const j = await api('/api/devices', {name: $('newName').value, platform: $('newPlatform').value});
+    $('addModal').classList.remove('show');
+    CUR = null;
+    await loadDevices();
+    await selectDevice(j.device.id);
+    log('device added', 's');
+  } catch(e){ log('add failed: ' + e.message, 'e'); }
+};
+$('btnDelDev').onclick = async () => {
+  if (!confirm('حذف "' + CUR.name + '" وكل أكواده؟')) return;
+  try{
+    await api('/api/devices/' + CUR.id, undefined, 'DELETE');
+    CUR = null;
+    $('editor').classList.add('hide'); $('empty').classList.remove('hide');
+    await loadDevices();
+    log('device deleted', 'w');
+  } catch(e){ log('delete failed: ' + e.message, 'e'); }
+};
+$('btnDupDev').onclick = async () => {
+  try{
+    const j = await api('/api/devices/' + CUR.id + '/duplicate', {});
+    await selectDevice(j.device.id);
+    log('device duplicated', 's');
+  } catch(e){ log('duplicate failed: ' + e.message, 'e'); }
+};
+$('devName').onchange = async () => {
+  try{
+    await api('/api/devices/' + CUR.id, {name: $('devName').value});
+    CUR.name = $('devName').value;
+    await loadDevices(true);
+  } catch(e){ log('rename failed: ' + e.message, 'e'); }
+};
+
+// ------------------------------------------------------------ tabs
+document.querySelectorAll('.tabs button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel');
+    $('tabCodes').classList.toggle('hide', b.dataset.tab !== 'codes');
+    $('tabCfg').classList.toggle('hide', b.dataset.tab !== 'cfg');
+  };
+});
+
+// ------------------------------------------------------------ config form
+function renderConfig(){
+  $('cfgFields').innerHTML = SPEC.fields.map(f => {
+    const v = CUR.config[f.key];
+    if (f.type === 'bool')
+      return '<div><label>&nbsp;</label><label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--txt)">' +
+        '<input type="checkbox" data-k="' + f.key + '" data-t="bool"' + (v ? ' checked' : '') + '> ' + f.label + '</label></div>';
+    if (f.type === 'list')
+      return '<div><label>' + f.label + '</label><textarea data-k="' + f.key + '" data-t="list">' +
+        esc((v || []).join(', ')) + '</textarea></div>';
+    if (f.type === 'number')
+      return '<div><label>' + f.label + '</label><input type="number" step="0.5" data-k="' + f.key +
+        '" data-t="number" value="' + (v !== undefined ? v : '') + '"></div>';
+    return '<div><label>' + f.label + '</label><input data-k="' + f.key + '" data-t="text" value="' + esc(v || '') + '"></div>';
+  }).join('');
+}
+$('btnSaveCfg').onclick = async () => {
+  const cfg = {};
+  $('cfgFields').querySelectorAll('[data-k]').forEach(el => {
+    const k = el.dataset.k;
+    if (el.dataset.t === 'bool') cfg[k] = el.checked;
+    else if (el.dataset.t === 'list') cfg[k] = splitList(el.value);
+    else if (el.dataset.t === 'number') cfg[k] = parseFloat(el.value);
+    else cfg[k] = el.value.trim();
+  });
+  try{
+    const j = await api('/api/devices/' + CUR.id, {config: cfg});
+    CUR = j.device; SLOTS = j.slots;
+    renderGroups(); updateProgress(j.stats);
+    await loadDevices(true);
+    $('cfgNote').textContent = 'تم الحفظ ✓';
+    setTimeout(() => { $('cfgNote').textContent = ''; }, 2500);
+    log('config saved', 's');
+  } catch(e){ log('save failed: ' + e.message, 'e'); }
+};
+
+// ------------------------------------------------------------ code groups
+function groupSlots(){
+  const map = new Map();
+  SLOTS.forEach((s, i) => {
+    if (!map.has(s.group)) map.set(s.group, []);
+    map.get(s.group).push(Object.assign({idx:i}, s));
+  });
+  return map;
+}
+function updateProgress(stats){
+  $('progTxt').textContent = stats.done + ' من ' + stats.total;
+  $('progBar').style.width = stats.total ? (stats.done / stats.total * 100) + '%' : '0';
+}
+
+function renderGroups(){
+  const groups = groupSlots();
+  const cmds = CUR.config.commands || {};
+  const at = path => {
+    let n = cmds;
+    for (const k of path){ if (!n || typeof n !== 'object') return null; n = n[k]; }
+    return typeof n === 'string' ? n : null;
+  };
+  let html = '';
+  groups.forEach((items, name) => {
+    const done = items.filter(s => at(s.path)).length;
+    const pct = Math.round(done / items.length * 100);
+    html += '<details class="group" data-g="' + esc(name) + '"><summary>' +
+      '<span class="nm">' + esc(name) + '</span>' +
+      '<span class="note">' + done + '/' + items.length + '</span>' +
+      '<span class="bar" style="width:70px"><i style="width:' + pct + '%"></i></span>' +
+      '<button class="sm primary" data-act="glearn">تعلّم المجموعة</button>' +
+      '<button class="sm" data-act="gsame">كود موحّد</button>' +
+      '<button class="sm danger" data-act="gclear">مسح</button>' +
+      '</summary><div class="slots"></div></details>';
+  });
+  $('groups').innerHTML = html || '<p class="note">لا توجد خانات — راجع التخصيص.</p>';
+
+  $('groups').querySelectorAll('summary button').forEach(b => {
+    b.onclick = ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      const g = b.closest('details').dataset.g;
+      groupAction(b.dataset.act, g);
+    };
+  });
+  // Slot rows are built only when a group is expanded: a climate device can
+  // have thousands of slots and building them all up front is wasteful.
+  $('groups').querySelectorAll('details').forEach(d => {
+    d.ontoggle = () => { if (d.open) fillGroup(d); };
+  });
+}
+
+function fillGroup(details){
+  const items = groupSlots().get(details.dataset.g) || [];
+  const cmds = CUR.config.commands || {};
+  const at = path => {
+    let n = cmds;
+    for (const k of path){ if (!n || typeof n !== 'object') return null; n = n[k]; }
+    return typeof n === 'string' ? n : null;
+  };
+  const box = details.querySelector('.slots');
+  box.innerHTML = items.map(s => {
+    const c = at(s.path);
+    return '<div class="slot' + (c ? ' has' : '') + '" data-i="' + s.idx + '">' +
+      '<span class="nm">' + esc(s.label) + '</span>' +
+      '<span class="code">' + (c ? esc(c.slice(0,60)) : '—') + '</span>' +
+      '<span class="acts">' +
+        '<button class="sm" data-act="learn">تعلّم</button> ' +
+        '<button class="sm" data-act="send"' + (c ? '' : ' disabled') + '>اختبار</button> ' +
+        '<button class="sm danger" data-act="clear"' + (c ? '' : ' disabled') + '>حذف</button>' +
+      '</span></div>';
+  }).join('');
+  box.querySelectorAll('button').forEach(b => {
+    b.onclick = () => slotAction(b.dataset.act, parseInt(b.closest('.slot').dataset.i, 10));
+  });
+}
+
+async function refresh(){
+  const open = [...$('groups').querySelectorAll('details[open]')].map(d => d.dataset.g);
+  const j = await api('/api/devices/' + CUR.id);
+  CUR = j.device; SLOTS = j.slots;
+  renderGroups(); updateProgress(j.stats);
+  $('groups').querySelectorAll('details').forEach(d => {
+    if (open.indexOf(d.dataset.g) !== -1){ d.open = true; fillGroup(d); }
+  });
+  await loadDevices(true);
+}
+
+// ------------------------------------------------------------ actions
+async function slotAction(act, idx){
+  const s = SLOTS[idx];
+  if (act === 'learn') return learnOne([s.path], s.label);
+  if (act === 'send'){
+    try{ await api('/api/send', {deviceId: CUR.id, path: s.path}); log('sent ' + s.label, 's'); }
+    catch(e){ log('send failed: ' + e.message, 'e'); }
+  }
+  if (act === 'clear'){
+    try{ await api('/api/clear', {deviceId: CUR.id, paths:[s.path]}); await refresh(); log('cleared ' + s.label, 'w'); }
+    catch(e){ log('clear failed: ' + e.message, 'e'); }
+  }
+}
+
+async function groupAction(act, group){
+  const items = groupSlots().get(group) || [];
+  if (act === 'gclear'){
+    if (!confirm('مسح كل أكواد "' + group + '"؟')) return;
+    try{ await api('/api/clear', {deviceId: CUR.id, paths: items.map(s => s.path)}); await refresh(); log('group cleared', 'w'); }
+    catch(e){ log('clear failed: ' + e.message, 'e'); }
+    return;
+  }
+  if (act === 'gsame'){
+    return learnOne(items.map(s => s.path), group + ' (كود موحّد)');
+  }
+  // gearn: walk the group, skipping what is already captured
+  stopFlag = false;
+  const cmds = CUR.config.commands || {};
+  const at = path => { let n = cmds; for (const k of path){ if (!n || typeof n !== 'object') return null; n = n[k]; } return typeof n === 'string' ? n : null; };
+  for (const s of items){
+    if (stopFlag){ log('stopped', 'w'); break; }
+    if (at(s.path)) continue;
+    const ok = await learnOne([s.path], group + ' · ' + s.label);
+    if (!ok) break;
+  }
+}
+
+// ------------------------------------------------------------ learning
+let countdownTimer = null;
+function openModal(title, sub){
+  $('mTitle').textContent = title;
+  $('mSub').textContent = sub || 'وجّه الريموت نحو جهاز Broadlink واضغط الزر.';
+  $('modal').classList.add('show');
+  let n = 30; $('mCount').textContent = n;
+  countdownTimer = setInterval(() => { $('mCount').textContent = Math.max(0, --n); }, 1000);
+}
+function closeModal(){ clearInterval(countdownTimer); $('modal').classList.remove('show'); }
+$('mCancel').onclick = () => { stopFlag = true; closeModal(); };
+$('btnStop').onclick = () => { stopFlag = true; log('stopping after current code', 'w'); };
+
+async function learnOne(paths, label){
+  if (busy) return false;
+  busy = true; $('btnStop').disabled = false;
+  openModal('اضغط: ' + label);
+  try{
+    await api('/api/learn', {deviceId: CUR.id, paths: paths});
+    log('learned ' + label, 's');
+    await refresh();
+    return true;
+  } catch(e){
+    log('learn failed (' + label + '): ' + e.message, 'e');
+    return false;
+  } finally { closeModal(); busy = false; $('btnStop').disabled = true; }
+}
+
+// ------------------------------------------------------------ import/export
+$('btnExpProject').onclick = () => download('/api/export/project');
+$('btnExpZip').onclick = () => download('/api/export/zip');
+$('btnExpOne').onclick = () => download('/api/export/device/' + CUR.id);
+
+$('btnImpProject').onclick = () => $('fileProject').click();
+$('fileProject').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!confirm('سيستبدل هذا كل الأجهزة الحالية. متابعة؟')) { e.target.value=''; return; }
+  try{
+    await api('/api/import/project', JSON.parse(await f.text()));
+    CUR = null; $('editor').classList.add('hide');
+    await loadDevices();
+    log('project restored', 's');
+  } catch(err){ log('restore failed: ' + err.message, 'e'); }
+  e.target.value = '';
+};
+$('btnImpDevice').onclick = () => $('fileDevice').click();
+$('fileDevice').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const keys = Object.keys(PLATFORMS);
+  const p = prompt('نوع الجهاز؟\n' + keys.map((k,i) => (i+1) + ') ' + PLATFORMS[k].label).join('\n'), '1');
+  const platform = keys[parseInt(p, 10) - 1];
+  if (!platform){ e.target.value=''; return; }
+  try{
+    const cfg = JSON.parse(await f.text());
+    const j = await api('/api/import/device', {platform: platform, config: cfg, name: f.name.replace(/\.json$/i,'')});
+    await loadDevices();
+    await selectDevice(j.device.id);
+    log('device imported', 's');
+  } catch(err){ log('import failed: ' + err.message, 'e'); }
+  e.target.value = '';
+};
+
+// ------------------------------------------------------------ boot
+(async () => {
+  const saved = localStorage.getItem('bl_ip');
+  if (saved) $('ip').value = saved;
+  try{
+    PLATFORMS = await api('/api/platforms');
+    await loadDevices();
+    const s = await api('/api/status');
+    if (s.connected) setStatus('on', s.device.model || 'متصل');
+    log('ready.', 's');
+  } catch(e){ log('boot failed: ' + e.message, 'e'); }
+})();
+</script>
+</body>
+</html>
