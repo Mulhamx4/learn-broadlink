@@ -41,6 +41,14 @@ python server.py
 
 Then open <http://127.0.0.1:8777>.
 
+Or use the run script for your platform, which installs dependencies, starts the
+server, and opens the browser automatically:
+
+```
+run.bat      # Windows: double-click, or run from a terminal
+./run.sh     # macOS / Linux
+```
+
 On first run the existing `smartir.json` is imported automatically as the first
 device. `smartir.json` itself is never modified, so `learn.py` keeps working.
 The project lives in `devices.json`.
